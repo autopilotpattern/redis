@@ -1,0 +1,33 @@
+redis:
+    image: autopilotpattern/redis:latest
+    mem_limit: 4g
+    restart: always
+    # expose for linking, but each container gets a private IP for
+    # internal use as well
+    expose:
+      - 6379
+      - 26379
+    labels:
+      - triton.cns.services=redis
+    env_file: _env
+    environment:
+      - CONTAINERPILOT=file:///etc/containerpilot.json
+
+consul:
+    image: progrium/consul:latest
+    command: -server -bootstrap -ui-dir /ui
+    restart: always
+    mem_limit: 128m
+    ports:
+      - 8500
+    expose:
+      - 53
+      - 8300
+      - 8301
+      - 8302
+      - 8400
+      - 8500
+    dns:
+      - 127.0.0.1
+    labels:
+      - triton.cns.services=consul

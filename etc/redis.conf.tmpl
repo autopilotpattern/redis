@@ -1,0 +1,4 @@
+appendonly yes
+{{range service "redis"}}
+slaveof {{.Address}} 6379
+{{end}}

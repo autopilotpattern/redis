@@ -1,0 +1,18 @@
+{
+  "consul": "{{ .CONSUL }}:8500",
+  "logging": {
+    "level": "DEBUG",
+    "format": "default",
+    "output": "stdout"
+  },
+  "preStart": [ "/usr/local/bin/manage.sh", "preStart" ],
+  "services": [
+    {
+      "name": "redis-replica",
+      "port": 6379,
+      "health": [ "/usr/local/bin/manage.sh", "health" ],
+      "poll": 5,
+      "ttl": 25
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+redis:
+    extends:
+      file: docker-compose.yml
+      service: redis
+    mem_limit: 512m
+    build: .
+    environment:
+      - CONSUL=consul
+    links:
+      - consul:consul
+    ports:
+      - 6379
+      - 26379
+
+consul:
+    extends:
+      file: docker-compose.yml
+      service: consul
+    ports:
+    - 8500:8500
