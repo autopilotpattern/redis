@@ -71,6 +71,19 @@ health() {
     redis-cli -p 26379 PING | grep PONG > /dev/null || (echo "sentinel ping failed" ; exit 1)
 }
 
+preStop() {
+    logDebug "preStop"
+
+    local sentinels=$(redis-cli -p 26379 SENTINEL SENTINELS mymaster | awk '/^ip$/ { getline; print $0 }')
+    logDebug "Sentinels to reset: ${sentinels}"
+    kill $(cat /var/run/sentinel.pid)
+
+    for sentinel in ${sentinels} ; do
+        echo "Resetting sentinel $sentinel"
+        redis-cli -h "${sentinel}" -p 26379 SENTINEL RESET "*"
+    done
+}
+
 snapshot() {
     echo "snapshot"
     # TODO
@@ -111,6 +124,7 @@ logDebug() {
 help() {
     echo "Usage: ./manage.sh preStart => first-run configuration"
     echo "       ./manage.sh health   => health check"
+    echo "       ./manage.sh preStop  => prepare for stop"
     echo "       ./manage.sh snapshot => save snapshot"
 }
 
