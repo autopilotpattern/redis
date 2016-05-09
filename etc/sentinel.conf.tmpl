@@ -53,7 +53,7 @@ dir /tmp
 {{range service "redis"}}
 sentinel monitor mymaster {{.Address}} 6379 {{key_or_default "service/redis-sentinel/quorum" "2"}}
 {{else}}
-sentinel monitor mymaster {{env "NODE_ADDRESS"}} 6379 {{key_or_default "service/redis-sentinel/quorum" "2"}}
+sentinel monitor mymaster {{env "MASTER_ADDRESS"}} 6379 {{key_or_default "service/redis-sentinel/quorum" "2"}}
 {{end}}
 
 # sentinel auth-pass <master-name> <password>

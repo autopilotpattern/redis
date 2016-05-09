@@ -1,6 +1,6 @@
 FROM redis:3-alpine
 
-RUN apk add --no-cache curl jq openssl tar
+RUN apk add --no-cache curl jq openssl tar bash
 
 # Add ContainerPilot and set its configuration file path
 ENV CONTAINERPILOT_VER 2.1.0
