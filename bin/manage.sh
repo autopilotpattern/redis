@@ -8,18 +8,23 @@ preStart() {
     local nodeAddress=$(ifconfig eth0 | awk '/inet addr/ {gsub("addr:", "", $2); print $2}')
     local lockPath=services/redis/locks/master
 
-    local serviceName=$(jq -r '.services[0].name' /etc/containerpilot.json)
-    if [[ "${serviceName}" == "redis-replica" ]]; then
+    getRegisteredServiceName
+    if [[ "${registeredServiceName}" == "redis-replica" ]]; then
 
         echo "Getting master address"
-        local i
-        for (( i = 0; i < ${MASTER_WAIT_TIMEOUT-60}; i++ )); do
-            getServiceAddresses "redis"
-            if [[ ${serviceAddresses} ]]; then
-                break
-            fi
-            sleep 1
-        done
+
+        if [[ "$(consul-cli --consul="${CONSUL}:8500" health service --passing "redis")" == "true" ]]; then
+            # only wait for a healthy service if there is one registered in the catalog
+            local i
+            for (( i = 0; i < ${MASTER_WAIT_TIMEOUT-60}; i++ )); do
+                getServiceAddresses "redis"
+                if [[ ${serviceAddresses} ]]; then
+                    break
+                fi
+                sleep 1
+            done
+        fi
+
         if [[ ! ${serviceAddresses} ]]; then
             echo "No healthy master, trying to set this node as master"
 
@@ -31,9 +36,7 @@ preStart() {
             if [[ ! ${serviceAddresses} ]]; then
                 echo "Still no healthy master, setting this node as master"
 
-                jq '.services[0].name = "redis"' /etc/containerpilot.json  > /etc/containerpilot.json.new
-                mv /etc/containerpilot.json.new /etc/containerpilot.json
-                kill -HUP 1
+                setRegisteredServiceName "redis"
             fi
 
             logDebug "Unlocking ${lockPath}"
@@ -46,9 +49,7 @@ preStart() {
         if [[ "$(consul-cli --consul="${CONSUL}:8500" kv lock "${lockPath}" --ttl=30s --session="${session}")" != "${session}" ]]; then
             echo "This node is no longer the master"
 
-            jq '.services[0].name = "redis-replica"' /etc/containerpilot.json  > /etc/containerpilot.json.new
-            mv /etc/containerpilot.json.new /etc/containerpilot.json
-            kill -HUP 1
+            setRegisteredServiceName "redis-replica"
         fi
 
     fi
@@ -67,8 +68,18 @@ preStart() {
 
 health() {
     logDebug "health"
-    redis-cli INFO > /dev/null || (err=$? ; echo "redis info failed" ; exit $err)
+    redis-cli PING | grep PONG > /dev/null || (echo "redis info failed" ; exit 1)
     redis-cli -p 26379 PING | grep PONG > /dev/null || (echo "sentinel ping failed" ; exit 1)
+
+    local role=$(redis-cli INFO | tr -d '\r' | awk '/^role:/ { print substr($0, 6); }')
+    getRegisteredServiceName
+    logDebug "Role ${role}, service ${registeredServiceName}"
+
+    if [[ "${registeredServiceName}" == "redis" ]] && [[ "${role}" != "master" ]]; then
+        setRegisteredServiceName "redis-replica"
+    elif [[ "${registeredServiceName}" == "redis-replica" ]] && [[ "${role}" != "slave" ]]; then
+        setRegisteredServiceName "redis"
+    fi
 }
 
 preStop() {
@@ -113,6 +124,16 @@ getServiceAddresses() {
     local serviceInfo=$(consul-cli --consul="${CONSUL}:8500" health service --passing "$1")
     serviceAddresses=($(echo $serviceInfo | jq -r '.[].Service.Address'))
     logDebug "serviceAddresses $1 ${serviceAddresses[*]}"
+}
+
+getRegisteredServiceName() {
+    registeredServiceName=$(jq -r '.services[0].name' /etc/containerpilot.json)
+}
+
+setRegisteredServiceName() {
+    jq ".services[0].name = \"$1\"" /etc/containerpilot.json  > /etc/containerpilot.json.new
+    mv /etc/containerpilot.json.new /etc/containerpilot.json
+    kill -HUP 1
 }
 
 logDebug() {
