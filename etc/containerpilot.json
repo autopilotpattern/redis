@@ -15,5 +15,13 @@
       "poll": 5,
       "ttl": 25
     }
+  ],
+  "tasks": [
+    {
+      "name": "backup",
+      "command": ["/usr/local/bin/manage.sh", "backUpIfTime"],
+      "frequency": "10m",
+      "timeout": "5m"
+    }
   ]
 }

@@ -64,6 +64,10 @@ preStart() {
     if [[ $? != 0 ]]; then
         exit 1
     fi
+
+    echo "$MANTA_PRIVATE_KEY" | tr '#' '\n' > /tmp/mantakey.pem
+
+    restoreFromBackup
 }
 
 health() {
@@ -71,7 +75,8 @@ health() {
     redis-cli PING | grep PONG > /dev/null || (echo "redis info failed" ; exit 1)
     redis-cli -p 26379 PING | grep PONG > /dev/null || (echo "sentinel ping failed" ; exit 1)
 
-    local role=$(redis-cli INFO | tr -d '\r' | awk '/^role:/ { print substr($0, 6); }')
+    getRedisInfo
+    local role=${redisInfo[role]}
     getRegisteredServiceName
     logDebug "Role ${role}, service ${registeredServiceName}"
 
@@ -95,9 +100,93 @@ preStop() {
     done
 }
 
-snapshot() {
-    echo "snapshot"
-    # TODO
+backUpIfTime() {
+    logDebug "backUpIfTime"
+
+    local backupCheckName=redis-backup-run
+    local status=$(consul-cli --consul="${CONSUL}:8500" agent checks | jq -r ".\"${backupCheckName}\".Status")
+    logDebug "status $status"
+    if [[ "${status}" != "passing" ]]; then
+        consul-cli --consul="${CONSUL}:8500" check pass "${backupCheckName}"
+        if [[ $? != 0 ]]; then
+            consul-cli --consul="${CONSUL}:8500" check register "${backupCheckName}" --ttl=${BACKUP_TTL-24h} || exit 1
+            consul-cli --consul="${CONSUL}:8500" check pass "${backupCheckName}" || exit 1
+        fi
+
+        saveBackup
+    fi
+}
+
+saveBackup() {
+    logDebug "saveBackup"
+
+    echo "Saving backup"
+    local prevLastSave=$(redis-cli LASTSAVE)
+    redis-cli BGSAVE || (echo "BGSAVE failed" ; exit 1)
+
+    local tries=0
+    while true
+    do
+        logDebug -n "."
+        tries=$((tries + 1))
+        local lastSave=$(redis-cli LASTSAVE)
+        if [[ "${lastSave}" != "${prevLastSave}" ]]; then
+            logDebug ""
+            break
+        elif [[ $tries -eq 60 ]]; then
+            logDebug ""
+            echo "Timeout waiting for backup"
+            exit 1
+        fi
+        sleep 1
+    done
+
+    local backupFilename=dump-$(date -u +%Y%m%d%H%M%S -d @${lastSave}).rdb.gz
+    gzip /data/dump.rdb -c > /data/${backupFilename}
+
+    echo "Uploading ${backupFilename}"
+    (manta ${MANTA_BUCKET}/${backupFilename} --upload-file /data/${backupFilename} -H 'content-type: application/gzip; type=file' --fail) || (echo "Backup upload failed" ; exit 1)
+
+    (consul-cli --consul="${CONSUL}:8500" kv write services/redis/last-backup "${backupFilename}") || (echo "Set last backup value failed" ; exit 1)
+
+    # remove the backup files so they don't grow without limit
+    rm ${backupFilename}
+}
+
+restoreFromBackup() {
+    local backupFilename=$(consul-cli --consul="${CONSUL}:8500" kv read --format=text services/redis/last-backup)
+
+    if [[ -n ${backupFilename} ]]; then
+        echo "Downloading ${backupFilename}"
+        manta ${MANTA_BUCKET}/${backupFilename} | gunzip > /data/dump.rdb
+        if [[ ! -s /data/dump.rdb ]]; then
+            echo "Backup download failed"
+            exit 1
+        fi
+
+        redis-server --appendonly no &
+        local i
+        for (( i = 0; i < 10; i++ )); do
+            sleep 0.1
+            redis-cli PING | grep PONG > /dev/null && break
+        done
+
+        redis-cli CONFIG SET appendonly yes | grep OK > /dev/null || exit 1
+
+        for (( i = 0; i < 600; i++ )); do
+            sleep 0.1
+            getRedisInfo
+            logDebug "aof_rewrite_in_progress ${redisInfo[aof_rewrite_in_progress]}"
+            if [[ "${redisInfo[aof_rewrite_in_progress]}" == "0" ]]; then
+                break
+            fi
+        done
+
+        logDebug "Shutting down"
+        redis-cli SHUTDOWN || exit 1
+
+        wait
+    fi
 }
 
 waitForLeader() {
@@ -136,6 +225,24 @@ setRegisteredServiceName() {
     kill -HUP 1
 }
 
+declare -A redisInfo
+getRedisInfo() {
+    eval $(redis-cli INFO | tr -d '\r' | egrep -v '^(#.*)?$' | sed -E 's/^([^:]*):(.*)$/redisInfo[\1]="\2"/')
+}
+
+manta() {
+    local alg=rsa-sha256
+    local keyId=/$MANTA_USER/$MANTA_SUBUSER/keys/$MANTA_KEY_ID
+    local now=$(date -u "+%a, %d %h %Y %H:%M:%S GMT")
+    local sig=$(echo "date:" $now | \
+                tr -d '\n' | \
+                openssl dgst -sha256 -sign /tmp/mantakey.pem | \
+                openssl enc -e -a | tr -d '\n')
+
+    curl -sS $MANTA_URL"$@" -H "date: $now"  \
+        -H "Authorization: Signature keyId=\"$keyId\",algorithm=\"$alg\",signature=\"$sig\""
+}
+
 logDebug() {
     if [[ -n "$DEBUG" ]]; then
         echo $*
@@ -143,10 +250,11 @@ logDebug() {
 }
 
 help() {
-    echo "Usage: ./manage.sh preStart => first-run configuration"
-    echo "       ./manage.sh health   => health check"
-    echo "       ./manage.sh preStop  => prepare for stop"
-    echo "       ./manage.sh snapshot => save snapshot"
+    echo "Usage: ./manage.sh preStart     => first-run configuration"
+    echo "       ./manage.sh health       => health check"
+    echo "       ./manage.sh preStop      => prepare for stop"
+    echo "       ./manage.sh backUpIfTime => save backup if it is time"
+    echo "       ./manage.sh saveBackup   => save backup now"
 }
 
 if [[ -z ${CONSUL} ]]; then
