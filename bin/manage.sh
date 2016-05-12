@@ -73,7 +73,6 @@ preStart() {
 health() {
     logDebug "health"
     redis-cli PING | grep PONG > /dev/null || (echo "redis info failed" ; exit 1)
-    redis-cli -p 26379 PING | grep PONG > /dev/null || (echo "sentinel ping failed" ; exit 1)
 
     getRedisInfo
     local role=${redisInfo[role]}
@@ -85,6 +84,11 @@ health() {
     elif [[ "${registeredServiceName}" == "redis-replica" ]] && [[ "${role}" != "slave" ]]; then
         setRegisteredServiceName "redis"
     fi
+}
+
+healthSentinel() {
+    logDebug "healthSentinel"
+    redis-cli -p 26379 PING | grep PONG > /dev/null || (echo "sentinel ping failed" ; exit 1)
 }
 
 preStop() {
@@ -250,11 +254,12 @@ logDebug() {
 }
 
 help() {
-    echo "Usage: ./manage.sh preStart     => first-run configuration"
-    echo "       ./manage.sh health       => health check"
-    echo "       ./manage.sh preStop      => prepare for stop"
-    echo "       ./manage.sh backUpIfTime => save backup if it is time"
-    echo "       ./manage.sh saveBackup   => save backup now"
+    echo "Usage: ./manage.sh preStart       => first-run configuration"
+    echo "       ./manage.sh health         => health check Redis"
+    echo "       ./manage.sh healthSentinel => health check Sentinel"
+    echo "       ./manage.sh preStop        => prepare for stop"
+    echo "       ./manage.sh backUpIfTime   => save backup if it is time"
+    echo "       ./manage.sh saveBackup     => save backup now"
 }
 
 if [[ -z ${CONSUL} ]]; then
