@@ -13,7 +13,7 @@ preStart() {
 
         echo "Getting master address"
 
-        if [[ "$(consul-cli --consul="${CONSUL}:8500" health service --passing "redis")" == "true" ]]; then
+        if [[ "$(consul-cli --consul="${CONSUL}:8500" catalog service "redis" | jq any)" == "true" ]]; then
             # only wait for a healthy service if there is one registered in the catalog
             local i
             for (( i = 0; i < ${MASTER_WAIT_TIMEOUT-60}; i++ )); do
