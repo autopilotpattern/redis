@@ -6,6 +6,7 @@ redis:
     build: .
     environment:
       - CONSUL=consul
+      - LOG_LEVEL=DEBUG
     links:
       - consul:consul
     ports:

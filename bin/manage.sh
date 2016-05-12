@@ -277,7 +277,7 @@ getNodeAddress() {
 }
 
 logDebug() {
-    if [[ -n "$DEBUG" ]]; then
+    if [[ "${LOG_LEVEL}" == "DEBUG" ]]; then
         echo $*
     fi
 }
