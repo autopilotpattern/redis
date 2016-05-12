@@ -17,4 +17,12 @@ consul:
       file: docker-compose.yml
       service: consul
     ports:
-    - 8500:8500
+      - 8500:8500
+
+test_counter:
+    mem_limit: 512m
+    build: tests
+    environment:
+      - CONSUL=consul
+    links:
+      - consul:consul
