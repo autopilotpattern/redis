@@ -72,7 +72,7 @@ preStart() {
 
 health() {
     logDebug "health"
-    redis-cli PING | grep PONG > /dev/null || (echo "redis info failed" ; exit 1)
+    redis-cli PING | grep PONG > /dev/null || (echo "redis ping failed" ; exit 1)
 
     getRedisInfo
     local role=${redisInfo[role]}
