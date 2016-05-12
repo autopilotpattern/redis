@@ -12,6 +12,7 @@ redis:
     env_file: _env
     environment:
       - CONTAINERPILOT=file:///etc/containerpilot.json
+      - affinity:com.docker.compose.service!=~redis
 
 consul:
     image: progrium/consul:latest
