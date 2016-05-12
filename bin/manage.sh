@@ -1,12 +1,11 @@
 #!/bin/bash
 
+readonly lockPath=services/redis/locks/master
+
 preStart() {
     logDebug "preStart"
 
     waitForLeader
-
-    local nodeAddress=$(ifconfig eth0 | awk '/inet addr/ {gsub("addr:", "", $2); print $2}')
-    local lockPath=services/redis/locks/master
 
     getRegisteredServiceName
     if [[ "${registeredServiceName}" == "redis-replica" ]]; then
@@ -57,6 +56,7 @@ preStart() {
     if [[ ${serviceAddresses} ]]; then
         echo "Master is ${serviceAddresses}"
     else
+        getNodeAddress
         echo "Master is ${nodeAddress} (this node)"
         export MASTER_ADDRESS=${nodeAddress}
     fi
@@ -83,6 +83,17 @@ health() {
         setRegisteredServiceName "redis-replica"
     elif [[ "${registeredServiceName}" == "redis-replica" ]] && [[ "${role}" != "slave" ]]; then
         setRegisteredServiceName "redis"
+    elif [[ "${registeredServiceName}" == "redis" ]] && [[ -f /var/run/redis-master.sid ]]; then
+        getNodeAddress
+        getServiceAddresses "redis"
+        if [[ "${nodeAddress}" == "${serviceAddresses}" ]]; then
+            local session=$(< /var/run/redis-master.sid)
+
+            logDebug "Unlocking ${lockPath}"
+            consul-cli --consul="${CONSUL}:8500" kv unlock "${lockPath}" --session="$session"
+
+            rm /var/run/redis-master.sid
+        fi
     fi
 }
 
@@ -245,6 +256,10 @@ manta() {
 
     curl -sS $MANTA_URL"$@" -H "date: $now"  \
         -H "Authorization: Signature keyId=\"$keyId\",algorithm=\"$alg\",signature=\"$sig\""
+}
+
+getNodeAddress() {
+    nodeAddress=$(ifconfig eth0 | awk '/inet addr/ {gsub("addr:", "", $2); print $2}')
 }
 
 logDebug() {
