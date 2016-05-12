@@ -67,7 +67,14 @@ preStart() {
 
     echo "$MANTA_PRIVATE_KEY" | tr '#' '\n' > /tmp/mantakey.pem
 
-    restoreFromBackup
+    if [[ ! -f /data/appendonly.aof ]]; then
+        # only restore from backup if no data exists
+        if [[ -s /data/dump.rdb ]]; then
+            loadBackupRdb
+        else
+            restoreFromBackup
+        fi
+    fi
 }
 
 health() {
@@ -122,6 +129,7 @@ backUpIfTime() {
     local status=$(consul-cli --consul="${CONSUL}:8500" agent checks | jq -r ".\"${backupCheckName}\".Status")
     logDebug "status $status"
     if [[ "${status}" != "passing" ]]; then
+        # TODO: pass the check after the backup?
         consul-cli --consul="${CONSUL}:8500" check pass "${backupCheckName}"
         if [[ $? != 0 ]]; then
             consul-cli --consul="${CONSUL}:8500" check register "${backupCheckName}" --ttl=${BACKUP_TTL-24h} || exit 1
@@ -179,29 +187,35 @@ restoreFromBackup() {
             exit 1
         fi
 
-        redis-server --appendonly no &
-        local i
-        for (( i = 0; i < 10; i++ )); do
-            sleep 0.1
-            redis-cli PING | grep PONG > /dev/null && break
-        done
-
-        redis-cli CONFIG SET appendonly yes | grep OK > /dev/null || exit 1
-
-        for (( i = 0; i < 600; i++ )); do
-            sleep 0.1
-            getRedisInfo
-            logDebug "aof_rewrite_in_progress ${redisInfo[aof_rewrite_in_progress]}"
-            if [[ "${redisInfo[aof_rewrite_in_progress]}" == "0" ]]; then
-                break
-            fi
-        done
-
-        logDebug "Shutting down"
-        redis-cli SHUTDOWN || exit 1
-
-        wait
+        loadBackupRdb
     fi
+}
+
+loadBackupRdb() {
+    echo "Initializing from /data/dump.rdb"
+
+    redis-server --appendonly no --protected-mode yes &
+    local i
+    for (( i = 0; i < 10; i++ )); do
+        sleep 0.1
+        redis-cli PING | grep PONG > /dev/null && break
+    done
+
+    redis-cli CONFIG SET appendonly yes | grep OK > /dev/null || exit 1
+
+    for (( i = 0; i < 600; i++ )); do
+        sleep 0.1
+        getRedisInfo
+        logDebug "aof_rewrite_in_progress ${redisInfo[aof_rewrite_in_progress]}"
+        if [[ "${redisInfo[aof_rewrite_in_progress]}" == "0" ]]; then
+            break
+        fi
+    done
+
+    logDebug "Shutting down"
+    redis-cli SHUTDOWN || exit 1
+
+    wait
 }
 
 waitForLeader() {
