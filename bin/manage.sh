@@ -65,7 +65,9 @@ preStart() {
         exit 1
     fi
 
-    echo "$MANTA_PRIVATE_KEY" | tr '#' '\n' > /tmp/mantakey.pem
+    if [[ "$MANTA_PRIVATE_KEY" ]]; then
+        echo "$MANTA_PRIVATE_KEY" | tr '#' '\n' > /tmp/mantakey.pem
+    fi
 
     if [[ ! -f /data/appendonly.aof ]]; then
         # only restore from backup if no data exists
@@ -267,6 +269,10 @@ manta() {
                 tr -d '\n' | \
                 openssl dgst -sha256 -sign /tmp/mantakey.pem | \
                 openssl enc -e -a | tr -d '\n')
+
+    if [[ -z "$sig" ]]; then
+        return 1
+    fi
 
     curl -sS $MANTA_URL"$@" -H "date: $now"  \
         -H "Authorization: Signature keyId=\"$keyId\",algorithm=\"$alg\",signature=\"$sig\""
