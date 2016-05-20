@@ -1,6 +1,7 @@
 #!/bin/bash
 
-readonly lockPath=services/redis/locks/master
+readonly lockPath=service/redis/locks/master
+readonly lastBackupKey=service/redis/last-backup
 
 preStart() {
     logDebug "preStart"
@@ -172,14 +173,14 @@ saveBackup() {
     echo "Uploading ${backupFilename}"
     (manta ${MANTA_BUCKET}/${backupFilename} --upload-file /data/${backupFilename} -H 'content-type: application/gzip; type=file' --fail) || (echo "Backup upload failed" ; exit 1)
 
-    (consul-cli --consul="${CONSUL}:8500" kv write services/redis/last-backup "${backupFilename}") || (echo "Set last backup value failed" ; exit 1)
+    (consul-cli --consul="${CONSUL}:8500" kv write "${lastBackupKey}" "${backupFilename}") || (echo "Set last backup value failed" ; exit 1)
 
     # remove the backup files so they don't grow without limit
     rm ${backupFilename}
 }
 
 restoreFromBackup() {
-    local backupFilename=$(consul-cli --consul="${CONSUL}:8500" kv read --format=text services/redis/last-backup)
+    local backupFilename=$(consul-cli --consul="${CONSUL}:8500" kv read --format=text "${lastBackupKey}")
 
     if [[ -n ${backupFilename} ]]; then
         echo "Downloading ${backupFilename}"
