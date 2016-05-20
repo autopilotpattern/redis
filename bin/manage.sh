@@ -61,9 +61,12 @@ preStart() {
         echo "Master is ${nodeAddress} (this node)"
         export MASTER_ADDRESS=${nodeAddress}
     fi
-    consul-template -consul=${CONSUL}:8500 -once -template=/etc/redis.conf.tmpl:/etc/redis.conf -template=/etc/sentinel.conf.tmpl:/etc/sentinel.conf
-    if [[ $? != 0 ]]; then
-        exit 1
+    if [[ ! -f /etc/redis.conf ]] && [[ ! -f /etc/sentinel.conf ]]; then
+        # don't overwrite sentinel.conf because Sentinel rewrites it with state configuration
+        consul-template -consul=${CONSUL}:8500 -once -template=/etc/redis.conf.tmpl:/etc/redis.conf -template=/etc/sentinel.conf.tmpl:/etc/sentinel.conf
+        if [[ $? != 0 ]]; then
+            exit 1
+        fi
     fi
 
     if [[ "$MANTA_PRIVATE_KEY" ]]; then
