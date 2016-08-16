@@ -9,8 +9,8 @@ consulCommand() {
     consul-cli --quiet --consul="${CONSUL}:8500" $*
 }
 
-preStart() {
-    logDebug "preStart"
+onStart() {
+    logDebug "onStart"
 
     waitForLeader
 
@@ -302,7 +302,7 @@ logDebug() {
 }
 
 help() {
-    echo "Usage: ./manage.sh preStart       => first-run configuration"
+    echo "Usage: ./manage.sh onStart        => first-run configuration"
     echo "       ./manage.sh health         => health check Redis"
     echo "       ./manage.sh healthSentinel => health check Sentinel"
     echo "       ./manage.sh preStop        => prepare for stop"

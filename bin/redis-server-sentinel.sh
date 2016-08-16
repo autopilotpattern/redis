@@ -1,5 +1,5 @@
 #!/bin/sh -xe
-manage.sh preStart #|| exit $?
+manage.sh onStart #|| exit $?
 if [[ $? != 0 ]]; then
     exit $?
 fi
