@@ -5,6 +5,7 @@
     "format": "default",
     "output": "stdout"
   },
+  "preStart": [ "/usr/local/bin/manage.sh", "preStart" ],
   "preStop": [ "/usr/local/bin/manage.sh", "preStop" ],
   "services": [
     {

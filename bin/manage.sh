@@ -9,6 +9,14 @@ consulCommand() {
     consul-cli --quiet --consul="${CONSUL}:8500" $*
 }
 
+preStart() {
+    logDebug "preStart"
+
+    if [[ -n ${CONSUL_LOCAL_CONFIG} ]]; then
+      	echo "$CONSUL_LOCAL_CONFIG" > "/opt/consul/config/local.json"
+    fi
+}
+
 onStart() {
     logDebug "onStart"
 
@@ -302,7 +310,8 @@ logDebug() {
 }
 
 help() {
-    echo "Usage: ./manage.sh onStart        => first-run configuration"
+    echo "Usage: ./manage.sh preStart       => configure Consul agent"
+    echo "       ./manage.sh onStart        => first-run configuration"
     echo "       ./manage.sh health         => health check Redis"
     echo "       ./manage.sh healthSentinel => health check Sentinel"
     echo "       ./manage.sh preStop        => prepare for stop"
