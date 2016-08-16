@@ -6,3 +6,4 @@ sentinel monitor mymaster {{.Address}} 6379 {{key_or_default "service/redis-sent
 {{else}}
 sentinel monitor mymaster {{env "MASTER_ADDRESS"}} 6379 {{key_or_default "service/redis-sentinel/quorum" "2"}}
 {{end}}
+sentinel failover-timeout mymaster {{key_or_default "service/redis-sentinel/failover-timeout" "30000"}}
