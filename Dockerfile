@@ -20,8 +20,8 @@ RUN curl -Lso /tmp/consul.zip "https://releases.hashicorp.com/consul/${CONSUL_VE
     && rm /tmp/consul.zip \
     && mkdir -p /opt/consul/config
 
-ENV CONSUL_TEMPLATE_VER 0.14.0
-ENV CONSUL_TEMPLATE_SHA256 7c70ea5f230a70c809333e75fdcff2f6f1e838f29cfb872e1420a63cdf7f3a78
+ENV CONSUL_TEMPLATE_VER 0.15.0
+ENV CONSUL_TEMPLATE_SHA256 b7561158d2074c3c68ff62ae6fc1eafe8db250894043382fb31f0c78150c513a
 RUN curl -Lso /tmp/consul-template.zip "https://releases.hashicorp.com/consul-template/${CONSUL_TEMPLATE_VER}/consul-template_${CONSUL_TEMPLATE_VER}_linux_amd64.zip" \
     && echo "${CONSUL_TEMPLATE_SHA256}  /tmp/consul-template.zip" | sha256sum -c \
     && unzip -d /usr/local/bin /tmp/consul-template.zip \
