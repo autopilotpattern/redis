@@ -15,7 +15,7 @@ build:
 	docker-compose -p my -f local-compose.yml build
 
 ship:
-	docker tag -f my_redis faithlife/redis:autopilot
+	docker tag my_redis faithlife/redis:autopilot
 	docker push faithlife/redis:autopilot
 
 # -------------------------------------------------------
