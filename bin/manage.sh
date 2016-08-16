@@ -1,5 +1,7 @@
 #!/bin/bash
 
+CONSUL=localhost
+
 readonly lockPath=service/redis/locks/master
 readonly lastBackupKey=service/redis/last-backup
 
@@ -41,6 +43,7 @@ preStart() {
                 echo "Still no healthy master, setting this node as master"
 
                 setRegisteredServiceName "redis"
+                exit 2
             fi
 
             logDebug "Unlocking ${lockPath}"
@@ -54,6 +57,7 @@ preStart() {
             echo "This node is no longer the master"
 
             setRegisteredServiceName "redis-replica"
+            exit 2
         fi
 
     fi
@@ -124,7 +128,10 @@ preStop() {
 
     local sentinels=$(redis-cli -p 26379 SENTINEL SENTINELS mymaster | awk '/^ip$/ { getline; print $0 }')
     logDebug "Sentinels to reset: ${sentinels}"
-    kill $(cat /var/run/sentinel.pid)
+    if [[ -f /var/run/sentinel.pid ]]; then
+      kill $(cat /var/run/sentinel.pid)
+      rm /var/run/sentinel.pid
+    fi
 
     for sentinel in ${sentinels} ; do
         echo "Resetting sentinel $sentinel"
@@ -229,18 +236,16 @@ loadBackupRdb() {
 }
 
 waitForLeader() {
-    logDebug -n "Waiting for consul leader"
+    logDebug "Waiting for consul leader"
     local tries=0
     while true
     do
-        logDebug -n "."
+        logDebug "Waiting for consul leader"
         tries=$((tries + 1))
         local leader=$(consulCommand --template="{{.}}" status leader)
         if [[ -n "$leader" ]]; then
-            logDebug ""
             break
         elif [[ $tries -eq 60 ]]; then
-            logDebug ""
             echo "No consul leader"
             exit 1
         fi
@@ -292,7 +297,7 @@ getNodeAddress() {
 
 logDebug() {
     if [[ "${LOG_LEVEL}" == "DEBUG" ]]; then
-        echo $*
+        echo "manage: $*"
     fi
 }
 
@@ -304,11 +309,6 @@ help() {
     echo "       ./manage.sh backUpIfTime   => save backup if it is time"
     echo "       ./manage.sh saveBackup     => save backup now"
 }
-
-if [[ -z ${CONSUL} ]]; then
-    echo "Missing CONSUL environment variable"
-    exit 1
-fi
 
 until
     cmd=$1
