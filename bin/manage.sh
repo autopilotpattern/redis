@@ -1,10 +1,24 @@
 #!/bin/bash
 
+CONSUL=localhost
+
 readonly lockPath=service/redis/locks/master
 readonly lastBackupKey=service/redis/last-backup
 
+consulCommand() {
+    consul-cli --quiet --consul="${CONSUL}:8500" $*
+}
+
 preStart() {
     logDebug "preStart"
+
+    if [[ -n ${CONSUL_LOCAL_CONFIG} ]]; then
+      	echo "$CONSUL_LOCAL_CONFIG" > "/opt/consul/config/local.json"
+    fi
+}
+
+onStart() {
+    logDebug "onStart"
 
     waitForLeader
 
@@ -13,7 +27,7 @@ preStart() {
 
         echo "Getting master address"
 
-        if [[ "$(consul-cli --consul="${CONSUL}:8500" catalog service "redis" | jq any)" == "true" ]]; then
+        if [[ "$(consulCommand catalog service "redis" | jq any)" == "true" ]]; then
             # only wait for a healthy service if there is one registered in the catalog
             local i
             for (( i = 0; i < ${MASTER_WAIT_TIMEOUT-60}; i++ )); do
@@ -29,7 +43,7 @@ preStart() {
             echo "No healthy master, trying to set this node as master"
 
             logDebug "Locking ${lockPath}"
-            local session=$(consul-cli --consul="${CONSUL}:8500" kv lock "${lockPath}" --ttl=30s --lock-delay=5s)
+            local session=$(consulCommand kv lock "${lockPath}" --ttl=30s --lock-delay=5s)
             echo ${session} > /var/run/redis-master.sid
 
             getServiceAddresses "redis"
@@ -37,19 +51,21 @@ preStart() {
                 echo "Still no healthy master, setting this node as master"
 
                 setRegisteredServiceName "redis"
+                exit 2
             fi
 
             logDebug "Unlocking ${lockPath}"
-            consul-cli --consul="${CONSUL}:8500" kv unlock "${lockPath}" --session="$session"
+            consulCommand kv unlock "${lockPath}" --session="$session"
         fi
 
     else
 
         local session=$(< /var/run/redis-master.sid)
-        if [[ "$(consul-cli --consul="${CONSUL}:8500" kv lock "${lockPath}" --ttl=30s --session="${session}")" != "${session}" ]]; then
+        if [[ "$(consulCommand kv lock "${lockPath}" --ttl=30s --session="${session}")" != "${session}" ]]; then
             echo "This node is no longer the master"
 
             setRegisteredServiceName "redis-replica"
+            exit 2
         fi
 
     fi
@@ -103,7 +119,7 @@ health() {
             local session=$(< /var/run/redis-master.sid)
 
             logDebug "Unlocking ${lockPath}"
-            consul-cli --consul="${CONSUL}:8500" kv unlock "${lockPath}" --session="$session"
+            consulCommand kv unlock "${lockPath}" --session="$session"
 
             rm /var/run/redis-master.sid
         fi
@@ -120,7 +136,10 @@ preStop() {
 
     local sentinels=$(redis-cli -p 26379 SENTINEL SENTINELS mymaster | awk '/^ip$/ { getline; print $0 }')
     logDebug "Sentinels to reset: ${sentinels}"
-    kill $(cat /var/run/sentinel.pid)
+    if [[ -f /var/run/sentinel.pid ]]; then
+      kill $(cat /var/run/sentinel.pid)
+      rm /var/run/sentinel.pid
+    fi
 
     for sentinel in ${sentinels} ; do
         echo "Resetting sentinel $sentinel"
@@ -132,14 +151,14 @@ backUpIfTime() {
     logDebug "backUpIfTime"
 
     local backupCheckName=redis-backup-run
-    local status=$(consul-cli --consul="${CONSUL}:8500" agent checks | jq -r ".\"${backupCheckName}\".Status")
+    local status=$(consulCommand agent checks | jq -r ".\"${backupCheckName}\".Status")
     logDebug "status $status"
     if [[ "${status}" != "passing" ]]; then
         # TODO: pass the check after the backup?
-        consul-cli --consul="${CONSUL}:8500" check pass "${backupCheckName}"
+        consulCommand check pass "${backupCheckName}"
         if [[ $? != 0 ]]; then
-            consul-cli --consul="${CONSUL}:8500" check register "${backupCheckName}" --ttl=${BACKUP_TTL-24h} || exit 1
-            consul-cli --consul="${CONSUL}:8500" check pass "${backupCheckName}" || exit 1
+            consulCommand check register "${backupCheckName}" --ttl=${BACKUP_TTL-24h} || exit 1
+            consulCommand check pass "${backupCheckName}" || exit 1
         fi
 
         saveBackup
@@ -176,14 +195,14 @@ saveBackup() {
     echo "Uploading ${backupFilename}"
     (manta ${MANTA_BUCKET}/${backupFilename} --upload-file /data/${backupFilename} -H 'content-type: application/gzip; type=file' --fail) || (echo "Backup upload failed" ; exit 1)
 
-    (consul-cli --consul="${CONSUL}:8500" kv write "${lastBackupKey}" "${backupFilename}") || (echo "Set last backup value failed" ; exit 1)
+    (consulCommand kv write "${lastBackupKey}" "${backupFilename}") || (echo "Set last backup value failed" ; exit 1)
 
     # remove the backup files so they don't grow without limit
     rm ${backupFilename}
 }
 
 restoreFromBackup() {
-    local backupFilename=$(consul-cli --consul="${CONSUL}:8500" kv read --format=text "${lastBackupKey}")
+    local backupFilename=$(consulCommand kv read --format=text "${lastBackupKey}")
 
     if [[ -n ${backupFilename} ]]; then
         echo "Downloading ${backupFilename}"
@@ -225,18 +244,16 @@ loadBackupRdb() {
 }
 
 waitForLeader() {
-    logDebug -n "Waiting for consul leader"
+    logDebug "Waiting for consul leader"
     local tries=0
     while true
     do
-        logDebug -n "."
+        logDebug "Waiting for consul leader"
         tries=$((tries + 1))
-        local leader=$(consul-cli --consul="${CONSUL}:8500" --template="{{.}}" status leader)
+        local leader=$(consulCommand --template="{{.}}" status leader)
         if [[ -n "$leader" ]]; then
-            logDebug ""
             break
         elif [[ $tries -eq 60 ]]; then
-            logDebug ""
             echo "No consul leader"
             exit 1
         fi
@@ -245,7 +262,7 @@ waitForLeader() {
 }
 
 getServiceAddresses() {
-    local serviceInfo=$(consul-cli --consul="${CONSUL}:8500" health service --passing "$1")
+    local serviceInfo=$(consulCommand health service --passing "$1")
     serviceAddresses=($(echo $serviceInfo | jq -r '.[].Service.Address'))
     logDebug "serviceAddresses $1 ${serviceAddresses[*]}"
 }
@@ -288,23 +305,19 @@ getNodeAddress() {
 
 logDebug() {
     if [[ "${LOG_LEVEL}" == "DEBUG" ]]; then
-        echo $*
+        echo "manage: $*"
     fi
 }
 
 help() {
-    echo "Usage: ./manage.sh preStart       => first-run configuration"
+    echo "Usage: ./manage.sh preStart       => configure Consul agent"
+    echo "       ./manage.sh onStart        => first-run configuration"
     echo "       ./manage.sh health         => health check Redis"
     echo "       ./manage.sh healthSentinel => health check Sentinel"
     echo "       ./manage.sh preStop        => prepare for stop"
     echo "       ./manage.sh backUpIfTime   => save backup if it is time"
     echo "       ./manage.sh saveBackup     => save backup now"
 }
-
-if [[ -z ${CONSUL} ]]; then
-    echo "Missing CONSUL environment variable"
-    exit 1
-fi
 
 until
     cmd=$1

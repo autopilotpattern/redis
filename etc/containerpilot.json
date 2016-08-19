@@ -1,5 +1,5 @@
 {
-  "consul": "{{ .CONSUL }}:8500",
+  "consul": "localhost:8500",
   "logging": {
     "level": "DEBUG",
     "format": "default",
@@ -29,6 +29,18 @@
       "command": ["/usr/local/bin/manage.sh", "backUpIfTime"],
       "frequency": "10m",
       "timeout": "5m"
+    }
+  ],
+  "coprocesses": [
+    {
+      "command": ["/usr/local/bin/consul", "agent",
+                  "-data-dir=/opt/consul/data",
+                  "-config-dir=/opt/consul/config",
+                  "-rejoin",
+                  "-retry-join", "{{ .CONSUL }}",
+                  "-retry-max", "10",
+                  "-retry-interval", "10s"],
+      "restarts": "unlimited"
     }
   ]
 }

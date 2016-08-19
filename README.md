@@ -15,17 +15,21 @@ A running cluster includes the following components:
 
 - [Redis](http://redis.io/): we're using Redis 3.2.
 - [Redis Sentinel](http://redis.io/topics/sentinel): manage failover.
-- [ContainerPilot](https://www.joyent.com/containerpilot): included in our Redis containers to orchestrate bootstrap behavior and coordinate replication using keys and checks stored in Consul in the `preStart`, `health`, and `backup` handlers.
+- [ContainerPilot](https://www.joyent.com/containerpilot): included in our Redis containers to orchestrate bootstrap behavior and coordinate replication using keys and checks stored in Consul in the startup, `health`, and `backup` handlers.
 - [Consul](https://www.consul.io/): is our service catalog that works with ContainerPilot and helps coordinate service discovery, replication, and failover
 - [Manta](https://www.joyent.com/object-storage): the Joyent object store, for securely and durably storing our Redis backups.
 - `manage.sh`: a small bash script that ContainerPilot will call into to do the heavy lifting of bootstrapping Redis.
 
-When a new Redis node is started, ContainerPilot's `preStart` handler will call into `manage.sh`.
+When a new Redis node is started.
 
 
-### Bootstrapping via `preStart` handler
+### Bootstrapping
 
-`preStart` performs the following:
+The `onStart` task is run as part of app start, not from ContainerPilot's `preStart` handler,
+because the Consul agent must be running, and ContainerPilot doesn't start coprocesses until
+after `preStart`.
+
+`onStart` performs the following:
 
 1. Is this container configured as a replica? If yes:
   1. Wait for the master to become healthy in the service registry.
@@ -59,7 +63,7 @@ ContainerPilot calls the `backup` handler via a recurring task. The backup handl
 
 ## Running the cluster
 
-Starting a new cluster is easy once you have [your `_env` file set with the configuration details](#configuration), **just run `docker-compose up -d` and in a few moments you'll have a running Redis master**. Both the master and replicas are described as a single `docker-compose` service. During startup, [ContainerPilot](http://containerpilot.io) will ask Consul if an existing master has been created. If not, the node will initialize as a new master and all future nodes will self-configure replication with the master in their `preStart` handler.
+Starting a new cluster is easy once you have [your `_env` file set with the configuration details](#configuration), **just run `docker-compose up -d` and in a few moments you'll have a running Redis master**. Both the master and replicas are described as a single `docker-compose` service. During startup, [ContainerPilot](http://containerpilot.io) will ask Consul if an existing master has been created. If not, the node will initialize as a new master and all future nodes will self-configure replication with the master via Sentinel.
 
 **Run `docker-compose scale redis=3` to add replicas**. The replicas will automatically configure themselves to to replicate from the master and will register themselves in Consul as replicas once they're ready. There should be at least 3 nodes to have a quorum in case of a node failure.
 
@@ -78,7 +82,7 @@ Pass these variables via an `_env` file. The included `setup.sh` can be used to 
 These variables are optional but you most likely want them:
 
 - `LOG_LEVEL`: will set the logging level of the `manage.sh` script. Set to `DEBUG` for more logging.
-- `CONSUL` is the hostname for the Consul instance(s). Defaults to `consul`.
+- `CONSUL` is the hostname for the Consul instance(s) to join. Defaults to `consul`.
 
 ### Where to store data
 
