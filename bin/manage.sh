@@ -101,7 +101,12 @@ onStart() {
 
 health() {
     logDebug "health"
-    redis-cli PING | grep PONG > /dev/null || (echo "redis ping failed" ; exit 1)
+
+    redis-cli PING | grep PONG > /dev/null
+    if [[ $? -ne 0 ]]; then
+        echo "redis ping failed"
+        exit 1
+    fi
 
     getRedisInfo
     local role=${redisInfo[role]}
@@ -128,7 +133,11 @@ health() {
 
 healthSentinel() {
     logDebug "healthSentinel"
-    redis-cli -p 26379 PING | grep PONG > /dev/null || (echo "sentinel ping failed" ; exit 1)
+    redis-cli -p 26379 PING | grep PONG > /dev/null
+    if [[ $? -ne 0 ]]; then
+        echo "sentinel ping failed"
+        exit 1
+    fi
 }
 
 preStop() {
