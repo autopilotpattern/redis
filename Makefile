@@ -6,6 +6,7 @@ MAKEFLAGS += --warn-undefined-variables
 SHELL := /bin/bash
 .SHELLFLAGS := -eu -o pipefail
 .DEFAULT_GOAL := build
+.PHONY: test
 
 MANTA_LOGIN ?= triton_redis
 MANTA_ROLE ?= triton_redis
@@ -31,9 +32,8 @@ cleanup:
 	mmkdir /${SDC_ACCOUNT}/stor/triton-redis
 	mchmod -- +triton_redis /${SDC_ACCOUNT}/stor/triton-redis
 
-test: stop build
-	docker-compose -p my -f local-compose.yml up -d
-	docker ps
+test:
+	docker run -it --rm -v /var/run/docker.sock:/var/run/docker.sock -e PATH=/root/venv/3.5/bin:/usr/bin:/usr/local/bin -e COMPOSE_HTTP_TIMEOUT=300 -w /src `docker build -f test/Dockerfile . | tail -n 1 | awk '{print $$3}'` python3 tests.py
 
 replicas:
 	docker-compose -p my -f local-compose.yml scale redis=3
