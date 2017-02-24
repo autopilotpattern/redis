@@ -7,6 +7,8 @@ Redis designed for automated operation using the [Autopilot Pattern](http://auto
 [![ImageLayers](https://badge.imagelayers.io/faithlife/redis:autopilot.svg)](https://imagelayers.io/?images=faithlife/redis:autopilot)
 [![Join the chat at https://gitter.im/autopilotpattern/general](https://badges.gitter.im/autopilotpattern/general.svg)](https://gitter.im/autopilotpattern/general)
 
+The initial work was sponsored by [Faithlife](https://faithlife.com/about).
+
 ---
 
 ## Architecture
