@@ -1,51 +1,158 @@
-# Makefile for shipping the container image and setting up
-# permissions in Manta. Building with the docker-compose file
-# directly works just fine without this.
+# Makefile for shipping and testing the container image.
 
 MAKEFLAGS += --warn-undefined-variables
-SHELL := /bin/bash
-.SHELLFLAGS := -eu -o pipefail
 .DEFAULT_GOAL := build
-.PHONY: test
+.PHONY: *
 
-MANTA_LOGIN ?= triton_redis
-MANTA_ROLE ?= triton_redis
-MANTA_POLICY ?= triton_redis
+# we get these from CI environment if available, otherwise from git
+GIT_COMMIT ?= $(shell git rev-parse --short HEAD)
+GIT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
+WORKSPACE ?= $(shell pwd)
 
-build:
-	docker-compose -p my -f local-compose.yml build
+namespace ?= autopilotpattern
+tag := branch-$(shell basename $(GIT_BRANCH))
+image := $(namespace)/redis
+testImage := $(namespace)/redis-testrunner
 
+dockerLocal := DOCKER_HOST= DOCKER_TLS_VERIFY= DOCKER_CERT_PATH= docker
+composeLocal := DOCKER_HOST= DOCKER_TLS_VERIFY= DOCKER_CERT_PATH= docker-compose
+
+## Display this help message
+help:
+	@awk '/^##.*$$/,/[a-zA-Z_-]+:/' $(MAKEFILE_LIST) | awk '!(NR%2){print $$0p}{p=$$0}' | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}' | sort
+
+
+# ------------------------------------------------
+# Container builds
+
+## Builds the application container image locally
+build: test-runner
+	$(dockerLocal) build -t=$(image):$(tag) .
+
+## Build the test running container
+test-runner:
+	$(dockerLocal) build -f test/Dockerfile -t=$(testImage):$(tag) .
+
+## Push the current application container images to the Docker Hub
+push:
+	$(dockerLocal) push $(image):$(tag)
+	$(dockerLocal) push $(testImage):$(tag)
+
+## Tag the current images as 'latest' and push them to the Docker Hub
 ship:
-	docker tag my_redis faithlife/redis:autopilot
-	docker push faithlife/redis:autopilot
+	$(dockerLocal) tag $(testImage):$(tag) $(testImage):latest
+	$(dockerLocal) tag $(image):$(tag) $(image):latest
+	$(dockerLocal) push $(image):$(tag)
+	$(dockerLocal) push $(image):latest
 
-# -------------------------------------------------------
-# for testing against Docker locally
+
+# ------------------------------------------------
+# Test running
+
+## Pull the container images from the Docker Hub
+pull:
+	docker pull $(image):$(tag)
+
+$(DOCKER_CERT_PATH)/key.pub:
+	ssh-keygen -y -f $(DOCKER_CERT_PATH)/key.pem > $(DOCKER_CERT_PATH)/key.pub
+
+# For Jenkins test runner only: make sure we have public keys available
+SDC_KEYS_VOL ?= -v $(DOCKER_CERT_PATH):$(DOCKER_CERT_PATH)
+keys: $(DOCKER_CERT_PATH)/key.pub
+
+run-local:
+	cd examples/compose && TAG=$(tag) $(composeLocal) -p redis up -d
+
+stop-local:
+	cd examples/compose && TAG=$(tag) $(composeLocal) -p redis stop || true
+	cd examples/compose && TAG=$(tag) $(composeLocal) -p redis rm -f || true
+
+run:
+	$(call check_var, TRITON_PROFILE \
+		required to run the example on Triton.)
+	cd examples/triton && TAG=$(tag) docker-compose -p redis up -d
 
 stop:
-	docker-compose -p my -f local-compose.yml stop || true
-	docker-compose -p my -f local-compose.yml rm -f || true
+	$(call check_var, TRITON_PROFILE \
+		required to run the example on Triton.)
+	cd examples/compose && TAG=$(tag) docker-compose -p redis stop || true
+	cd examples/compose && TAG=$(tag) docker-compose -p redis rm -f || true
 
-cleanup:
-	$(call check_var, SDC_ACCOUNT, Required to cleanup Manta.)
-	-mrm -r /${SDC_ACCOUNT}/stor/triton-redis/
-	mmkdir /${SDC_ACCOUNT}/stor/triton-redis
-	mchmod -- +triton_redis /${SDC_ACCOUNT}/stor/triton-redis
+test-image:
+	docker build -f test/Dockerfile .
 
+run-test-image-local:
+	$(dockerLocal) run -it --rm \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-e TAG=$(tag) \
+		-e COMPOSE_FILE=compose/docker-compose.yml \
+		-e PATH=/root/venv/3.5/bin:/bin:/usr/bin:/usr/local/bin \
+		-e COMPOSE_HTTP_TIMEOUT=300 \
+		-w /src \
+		`docker build -f test/Dockerfile . | tail -n 1 | awk '{print $$3}'` \
+		sh
+
+run-test-image:
+	$(call check_var, TRITON_ACCOUNT TRITON_DC, \
+		required to run integration tests on Triton.)
+	$(dockerLocal) run -it --rm \
+		-e TAG=$(tag) \
+		-e COMPOSE_FILE=triton/docker-compose.yml \
+		-e COMPOSE_HTTP_TIMEOUT=300 \
+		-e DOCKER_HOST=$(DOCKER_HOST) \
+		-e DOCKER_TLS_VERIFY=1 \
+		-e DOCKER_CERT_PATH=$(DOCKER_CERT_PATH) \
+		-e TRITON_ACCOUNT=$(TRITON_ACCOUNT) \
+		-e TRITON_DC=$(TRITON_DC) \
+		$(SDC_KEYS_VOL) -w /src \
+		$(testImage):$(tag) sh
+
+## Run integration tests against local Docker daemon
+test-local:
+	$(dockerLocal) run -it --rm \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-e TAG=$(tag) \
+		-e COMPOSE_FILE=compose/docker-compose.yml \
+		-e PATH=/root/venv/3.5/bin:/bin:/usr/bin:/usr/local/bin \
+		-e COMPOSE_HTTP_TIMEOUT=300 \
+		-w /src \
+		`docker build -f test/Dockerfile . | tail -n 1 | awk '{print $$3}'` \
+		python3 tests.py
+
+## Run the integration test runner locally but target Triton
 test:
-	docker run -it --rm -v /var/run/docker.sock:/var/run/docker.sock -e PATH=/root/venv/3.5/bin:/usr/bin:/usr/local/bin -e COMPOSE_HTTP_TIMEOUT=300 -w /src `docker build -f test/Dockerfile . | tail -n 1 | awk '{print $$3}'` python3 tests.py
+	$(call check_var, TRITON_ACCOUNT TRITON_DC, \
+		required to run integration tests on Triton.)
+	$(dockerLocal) run --rm \
+		-e TAG=$(tag) \
+		-e COMPOSE_FILE=triton/docker-compose.yml \
+		-e COMPOSE_HTTP_TIMEOUT=300 \
+		-e DOCKER_HOST=$(DOCKER_HOST) \
+		-e DOCKER_TLS_VERIFY=1 \
+		-e DOCKER_CERT_PATH=$(DOCKER_CERT_PATH) \
+		-e TRITON_ACCOUNT=$(TRITON_ACCOUNT) \
+		-e TRITON_DC=$(TRITON_DC) \
+		$(SDC_KEYS_VOL) -w /src \
+		$(testImage):$(tag) python3 tests.py
 
-replicas:
-	docker-compose -p my -f local-compose.yml scale redis=3
-	docker ps
+## Print environment for build debugging
+debug:
+	@echo WORKSPACE=$(WORKSPACE)
+	@echo GIT_COMMIT=$(GIT_COMMIT)
+	@echo GIT_BRANCH=$(GIT_BRANCH)
+	@echo namespace=$(namespace)
+	@echo tag=$(tag)
+	@echo image=$(image)
+	@echo testImage=$(testImage)
 
+# Create backup user/policies (usage: make manta EMAIL=example@example.com PASSWORD=pwd)
 # -------------------------------------------------------
-
-# create user and policies for backups
-# you need to have your SDC_ACCOUNT set
+# Create user and policies for backups
+# Requires SDC_ACCOUNT to be set
 # usage:
 # make manta EMAIL=example@example.com PASSWORD=strongpassword
-
+#
+## Create backup user and policies
 manta:
 	$(call check_var, EMAIL PASSWORD SDC_ACCOUNT, \
 		Required to create a Manta login.)
@@ -69,7 +176,7 @@ manta:
 
 # -------------------------------------------------------
 # helper functions for testing if variables are defined
-
+#
 check_var = $(foreach 1,$1,$(__check_var))
 __check_var = $(if $(value $1),,\
 	$(error Missing $1 $(if $(value 2),$(strip $2))))
