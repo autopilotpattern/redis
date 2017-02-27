@@ -12,6 +12,7 @@ RUN pip3 install \
 
 # install test targets
 COPY examples/compose/docker-compose.yml /src/compose/docker-compose.yml
+COPY examples/triton/docker-compose.yml /src/triton/docker-compose.yml
 
 # install tests
 COPY test/testing/testcases.py /src/testcases.py
