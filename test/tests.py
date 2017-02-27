@@ -16,16 +16,15 @@ import requests
 
 
 class RedisStackTest(AutopilotPatternTest):
-    compose_file = 'compose/docker-compose.yml'
     project_name = 'redis'
 
     def setUp(self):
-        pass
-        # account = os.environ['TRITON_ACCOUNT']
-        # dc = os.environ['TRITON_DC']
-        # self.consul_cns = 'consul.svc.{}.{}.triton.zone'.format(account, dc)
-        # self.nginx_cns = 'nginx-frontend.svc.{}.{}.triton.zone'.format(account, dc)
-        # os.environ['CONSUL'] = self.consul_cns
+        if 'COMPOSE_FILE' in os.environ and 'triton' in os.environ['COMPOSE_FILE']:
+            account = os.environ['TRITON_ACCOUNT']
+            dc = os.environ['TRITON_DC']
+            self.consul_cns = 'redis-consul.svc.{}.{}.triton.zone'.format(account, dc)
+            self.redis_cns = 'redis.svc.{}.{}.triton.zone'.format(account, dc)
+            os.environ['CONSUL'] = self.consul_cns
 
     def test_redis(self):
         ###############################################
@@ -33,15 +32,15 @@ class RedisStackTest(AutopilotPatternTest):
         ###############################################
         self.instrument(self.wait_for_containers,
                         {'redis': 1, 'consul': 1}, timeout=300)
-        self.instrument(self.wait_for_service, 'redis', count=1, timeout=120)
-        self.instrument(self.wait_for_service, 'redis-sentinel', count=1, timeout=120)
+        self.instrument(self.wait_for_service, 'redis', count=1, timeout=300)
+        self.instrument(self.wait_for_service, 'redis-sentinel', count=1, timeout=180)
 
         self.compose_scale('redis', 3)
         self.instrument(self.wait_for_containers,
                         {'redis': 3, 'consul': 1}, timeout=300)
-        self.instrument(self.wait_for_service, 'redis', count=1, timeout=60)
-        self.instrument(self.wait_for_service, 'redis-replica', count=2, timeout=60)
-        self.instrument(self.wait_for_service, 'redis-sentinel', count=3, timeout=60)
+        self.instrument(self.wait_for_service, 'redis', count=1, timeout=180)
+        self.instrument(self.wait_for_service, 'redis-replica', count=2, timeout=180)
+        self.instrument(self.wait_for_service, 'redis-sentinel', count=3, timeout=180)
 
         ###############################################
         # manual fail over
@@ -61,8 +60,7 @@ class RedisStackTest(AutopilotPatternTest):
         value = uuid.uuid4()
         self.docker_exec(master_container, 'redis-cli set test:repl ' + str(value))
         for replica in replica_containers:
-            replicated_value = self.docker_exec(replica, 'redis-cli get test:repl')
-            self.assertEqual(str(value), replicated_value.strip('\n'))
+            self.instrument(self.wait_for_replicated_value, replica, 'test:repl', value)
 
         ###############################################
         # container destruction fail over
@@ -83,8 +81,23 @@ class RedisStackTest(AutopilotPatternTest):
             addresses = self.get_service_addresses_from_consul('redis')
             if (len(addresses) > 0 and addresses[0] != from_ip):
                 break
+            time.sleep(1)
+            timeout -= 1
         else:
             raise WaitTimeoutError("Timed out waiting for redis service to be updated in Consul.")
+
+    def wait_for_replicated_value(self, replica, key, value, timeout=30):
+        """
+        Waits for the given key/value pair to be written to the given replica
+        """
+        while timeout > 0:
+            replicated_value = self.docker_exec(replica, 'redis-cli get test:repl')
+            if (replicated_value.strip('\n') == value):
+                break
+            time.sleep(1)
+            timeout -= 1
+        else:
+            raise WaitTimeoutError("Timed out waiting for redis replica to receive replicated value.")
 
     def wait_for_containers(self, expected={}, timeout=30):
         """
