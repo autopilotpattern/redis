@@ -1,34 +1,34 @@
 redis:
-    image: faithlife/redis:autopilot
-    mem_limit: 512m
-    restart: always
-    environment:
-      - CONSUL=consul
-    links:
-      - consul:consul
-    ports:
-      - 6379
-      - 26379
-    expose:
-      - 6379
-      - 26379
+  image: autopilotpattern/redis:${TAG}
+  mem_limit: 512m
+  restart: always
+  environment:
+    - CONSUL=consul
+  links:
+    - consul:consul
+  ports:
+    - 6379
+    - 26379
+  expose:
+    - 6379
+    - 26379
 
 consul:
-    image: autopilotpattern/consul:0.7.2-r0.8
-    command: > 
-      /usr/local/bin/containerpilot
-      /bin/consul agent -server
-        -bootstrap-expect 1
-        -config-dir=/etc/consul
-        -ui-dir /ui
-    restart: always
-    mem_limit: 128m
-    ports:
-      - 8500
-    expose:
-      - 53
-      - 8300
-      - 8301
-      - 8302
-      - 8400
-      - 8500
+  image: autopilotpattern/consul:0.7.2-r0.8
+  command: > 
+    /usr/local/bin/containerpilot
+    /bin/consul agent -server
+      -bootstrap-expect 1
+      -config-dir=/etc/consul
+      -ui-dir /ui
+  restart: always
+  mem_limit: 128m
+  ports:
+    - 8500
+  expose:
+    - 53
+    - 8300
+    - 8301
+    - 8302
+    - 8400
+    - 8500
