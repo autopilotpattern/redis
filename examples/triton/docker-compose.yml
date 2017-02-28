@@ -12,10 +12,11 @@ services:
       - 26379
     labels:
       - triton.cns.services=redis
-    # env_file: _env
     environment:
+      - CONSUL=redis-consul.svc.${TRITON_ACCOUNT}.${TRITON_DC}.cns.joyent.com
       - CONTAINERPILOT=file:///etc/containerpilot.json
       - affinity:com.docker.compose.service!=~redis
+    # env_file: _env
     network_mode: bridge
 
   consul:
