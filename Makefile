@@ -86,7 +86,6 @@ run-test-image-local:
 		-v /var/run/docker.sock:/var/run/docker.sock \
 		-e TAG=$(tag) \
 		-e COMPOSE_FILE=compose/docker-compose.yml \
-		-e PATH=/root/venv/3.5/bin:/bin:/usr/bin:/usr/local/bin \
 		-e COMPOSE_HTTP_TIMEOUT=300 \
 		-w /src \
 		`docker build -f test/Dockerfile . | tail -n 1 | awk '{print $$3}'` \
@@ -113,7 +112,6 @@ test-local:
 		-v /var/run/docker.sock:/var/run/docker.sock \
 		-e TAG=$(tag) \
 		-e COMPOSE_FILE=compose/docker-compose.yml \
-		-e PATH=/root/venv/3.5/bin:/bin:/usr/bin:/usr/local/bin \
 		-e COMPOSE_HTTP_TIMEOUT=300 \
 		-w /src \
 		`docker build -f test/Dockerfile . | tail -n 1 | awk '{print $$3}'` \
