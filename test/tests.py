@@ -50,15 +50,15 @@ class RedisStackTest(AutopilotPatternTest):
 
         # force redis sentinel to failover master to a new redis instance
         self.docker_exec(master_container, 'redis-cli -p 26379 sentinel failover mymaster')
-        self.instrument(self.wait_for_failover_from, master_ip)
+        self.instrument(self.wait_for_failover_from, master_ip, timeout=120)
 
         ###############################################
         # validate replication
         ###############################################
         master_container = self.get_service_instances_from_consul('redis')[0]
         replica_containers = self.get_service_instances_from_consul('redis-replica')
-        value = uuid.uuid4()
-        self.docker_exec(master_container, 'redis-cli set test:repl ' + str(value))
+        value = str(uuid.uuid4())
+        self.docker_exec(master_container, 'redis-cli set test:repl ' + value)
         for replica in replica_containers:
             self.instrument(self.wait_for_replicated_value, replica, 'test:repl', value)
 
@@ -77,22 +77,35 @@ class RedisStackTest(AutopilotPatternTest):
         Waits for the IP address of the `redis` service in Consul to change
         from what we knew the IP address to be prior to failing over
         """
+        # verify "redis" address changes
         while timeout > 0:
             addresses = self.get_service_addresses_from_consul('redis')
             if (len(addresses) > 0 and addresses[0] != from_ip):
+                new_master_ip = addresses[0]
                 break
             time.sleep(1)
             timeout -= 1
         else:
             raise WaitTimeoutError("Timed out waiting for redis service to be updated in Consul.")
 
+        # verify old master becoems a replica and new master is no longer a replica
+        while timeout > 0:
+            addresses = self.get_service_addresses_from_consul('redis-replica')
+            if from_ip in addresses and new_master_ip not in addresses:
+                break
+            time.sleep(1)
+            timeout -= 1
+        else:
+            raise WaitTimeoutError("Timed out waiting for redis service to be updated in Consul.")
+
+
     def wait_for_replicated_value(self, replica, key, value, timeout=30):
         """
         Waits for the given key/value pair to be written to the given replica
         """
         while timeout > 0:
-            replicated_value = self.docker_exec(replica, 'redis-cli get test:repl')
-            if (replicated_value.strip('\n') == value):
+            replicated_value = self.docker_exec(replica, 'redis-cli get test:repl').strip("\n")
+            if (replicated_value == value):
                 break
             time.sleep(1)
             timeout -= 1
