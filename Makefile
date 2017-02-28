@@ -52,6 +52,7 @@ ship:
 ## Pull the container images from the Docker Hub
 pull:
 	docker pull $(image):$(tag)
+	docker pull $(testImage):$(tag)
 
 $(DOCKER_CERT_PATH)/key.pub:
 	ssh-keygen -y -f $(DOCKER_CERT_PATH)/key.pem > $(DOCKER_CERT_PATH)/key.pub
