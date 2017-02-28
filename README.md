@@ -4,8 +4,6 @@ Redis designed for automated operation using the [Autopilot Pattern](http://auto
 
 [![DockerPulls](https://img.shields.io/docker/pulls/autopilotpattern/redis.svg)](https://registry.hub.docker.com/u/autopilotpattern/redis/)
 [![DockerStars](https://img.shields.io/docker/stars/autopilotpattern/redis.svg)](https://registry.hub.docker.com/u/autopilotpattern/redis/)
-[![ImageLayers](https://badge.imagelayers.io/autopilotpattern/redis.svg)](https://imagelayers.io/?images=autopilotpattern/redis)
-[![Join the chat at https://gitter.im/autopilotpattern/general](https://badges.gitter.im/autopilotpattern/general.svg)](https://gitter.im/autopilotpattern/general)
 
 ---
 
