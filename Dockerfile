@@ -3,17 +3,17 @@ FROM redis:3-alpine
 RUN apk add --no-cache curl jq openssl tar bash
 
 # Add ContainerPilot and set its configuration file path
-ENV CONTAINERPILOT_VER 2.4.1
+ENV CONTAINERPILOT_VER 2.7.0
 ENV CONTAINERPILOT file:///etc/containerpilot.json
-RUN export CONTAINERPILOT_CHECKSUM=198d96c8d7bfafb1ab6df96653c29701510b833c \
+RUN export CONTAINERPILOT_CHECKSUM=687f7d83e031be7f497ffa94b234251270aee75b \
     && curl -Lso /tmp/containerpilot.tar.gz \
         "https://github.com/joyent/containerpilot/releases/download/${CONTAINERPILOT_VER}/containerpilot-${CONTAINERPILOT_VER}.tar.gz" \
     && echo "${CONTAINERPILOT_CHECKSUM}  /tmp/containerpilot.tar.gz" | sha1sum -c \
     && tar zxf /tmp/containerpilot.tar.gz -C /usr/local/bin \
     && rm /tmp/containerpilot.tar.gz
 
-ENV CONSUL_VER 0.6.4
-ENV CONSUL_SHA256 abdf0e1856292468e2c9971420d73b805e93888e006c76324ae39416edcf0627
+ENV CONSUL_VER 0.7.2
+ENV CONSUL_SHA256 aa97f4e5a552d986b2a36d48fdc3a4a909463e7de5f726f3c5a89b8a1be74a58
 RUN curl -Lso /tmp/consul.zip "https://releases.hashicorp.com/consul/${CONSUL_VER}/consul_${CONSUL_VER}_linux_amd64.zip" \
     && echo "${CONSUL_SHA256}  /tmp/consul.zip" | sha256sum -c \
     && unzip /tmp/consul -d /usr/local/bin \
