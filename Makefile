@@ -38,10 +38,13 @@ push:
 	$(dockerLocal) push $(image):$(tag)
 	$(dockerLocal) push $(testImage):$(tag)
 
-## Tag the current images as 'latest' and push them to the Docker Hub
-ship:
+## Tag the current images as 'latest'
+tag:
 	$(dockerLocal) tag $(testImage):$(tag) $(testImage):latest
 	$(dockerLocal) tag $(image):$(tag) $(image):latest
+
+## Push latest tag(s) to the Docker Hub
+ship: tag
 	$(dockerLocal) push $(image):$(tag)
 	$(dockerLocal) push $(image):latest
 
