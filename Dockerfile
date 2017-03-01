@@ -1,4 +1,4 @@
-FROM redis:3-alpine
+FROM redis:3.2.8-alpine
 
 RUN apk add --no-cache curl jq openssl tar bash
 
