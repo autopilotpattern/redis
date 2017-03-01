@@ -1,5 +1,8 @@
-redis:
-    image: faithlife/redis:autopilot
+version: '2.1'
+
+services:
+  redis:
+    image: autopilotpattern/redis:${TAG:-latest}
     mem_limit: 4g
     restart: always
     # expose for linking, but each container gets a private IP for
@@ -9,14 +12,21 @@ redis:
       - 26379
     labels:
       - triton.cns.services=redis
-    env_file: _env
     environment:
+      - CONSUL=redis-consul.svc.${TRITON_ACCOUNT}.${TRITON_DC}.cns.joyent.com
       - CONTAINERPILOT=file:///etc/containerpilot.json
       - affinity:com.docker.compose.service!=~redis
+    # env_file: _env
+    network_mode: bridge
 
-consul:
-    image: progrium/consul:latest
-    command: -server -bootstrap -ui-dir /ui
+  consul:
+    image: autopilotpattern/consul:0.7.2-r0.8
+    command: >
+      /usr/local/bin/containerpilot
+      /bin/consul agent -server
+        -bootstrap-expect 1
+        -config-dir=/etc/consul
+        -ui-dir /ui
     restart: always
     mem_limit: 128m
     ports:
@@ -28,7 +38,6 @@ consul:
       - 8302
       - 8400
       - 8500
-    dns:
-      - 127.0.0.1
     labels:
-      - triton.cns.services=consul
+      - triton.cns.services=redis-consul
+    network_mode: bridge
