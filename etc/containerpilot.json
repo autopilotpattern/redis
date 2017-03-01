@@ -1,7 +1,7 @@
 {
   "consul": "localhost:8500",
   "logging": {
-    "level": "DEBUG",
+    "level": "INFO",
     "format": "default",
     "output": "stdout"
   },

@@ -2,10 +2,8 @@
 
 Redis designed for automated operation using the [Autopilot Pattern](http://autopilotpattern.io/).
 
-[![DockerPulls](https://img.shields.io/docker/pulls/faithlife/redis.svg)](https://registry.hub.docker.com/u/faithlife/redis/)
-[![DockerStars](https://img.shields.io/docker/stars/faithlife/redis.svg)](https://registry.hub.docker.com/u/faithlife/redis/)
-[![ImageLayers](https://badge.imagelayers.io/faithlife/redis:autopilot.svg)](https://imagelayers.io/?images=faithlife/redis:autopilot)
-[![Join the chat at https://gitter.im/autopilotpattern/general](https://badges.gitter.im/autopilotpattern/general.svg)](https://gitter.im/autopilotpattern/general)
+[![DockerPulls](https://img.shields.io/docker/pulls/autopilotpattern/redis.svg)](https://registry.hub.docker.com/u/autopilotpattern/redis/)
+[![DockerStars](https://img.shields.io/docker/stars/autopilotpattern/redis.svg)](https://registry.hub.docker.com/u/autopilotpattern/redis/)
 
 The initial work was sponsored by [Faithlife](https://faithlife.com/about).
 
@@ -71,7 +69,7 @@ Starting a new cluster is easy once you have [your `_env` file set with the conf
 
 ### Configuration
 
-Pass these variables via an `_env` file. The included `setup.sh` can be used to test your Docker and Triton environment, and to encode the Manta SSH key in the `_env` file.
+Pass these variables via an `_env` file. The included `examples/triton/setup.sh` can be used to test your Docker and Triton environment, and to encode the Manta SSH key in the `_env` file.
 
 - `MANTA_URL`: the full Manta endpoint URL. (ex. `https://us-east.manta.joyent.com`)
 - `MANTA_USER`: the Manta account name.
