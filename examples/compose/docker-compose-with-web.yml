@@ -1,0 +1,57 @@
+version: '2.1'
+
+services:
+  redis:
+    image: autopilotpattern/redis:3.2.8-r1.0.0
+    mem_limit: 512m
+    restart: always
+    expose:
+      - 6379
+      - 26379
+    environment:
+      - CONSUL=consul
+    links:
+      - consul:consul
+    ports:
+      - 6379
+      - 26379
+    expose:
+      - 6379
+      - 26379
+    network_mode: bridge
+
+  consul:
+    image: autopilotpattern/consul:0.7.2-r0.8
+    command: >
+      /usr/local/bin/containerpilot
+      /bin/consul agent -server
+        -bootstrap-expect 1
+        -config-dir=/etc/consul
+        -ui-dir /ui
+    restart: always
+    mem_limit: 128m
+    ports:
+      - 8500
+    expose:
+      - 53
+      - 8300
+      - 8301
+      - 8302
+      - 8400
+      - 8500
+    network_mode: bridge
+
+  webserver:
+    image: jasonpincin/ap-redis-example-webserver:1.0.0
+    restart: always
+    mem_limit: 128m
+    environment:
+      - CONSUL=consul
+    links:
+      - redis:redis
+      - consul:consul
+    ports:
+      - 8000
+    expose:
+      - 8000
+    network_mode: bridge
