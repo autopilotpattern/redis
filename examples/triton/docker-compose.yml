@@ -2,7 +2,7 @@ version: '2.1'
 
 services:
   redis:
-    image: autopilotpattern/redis:${TAG:-latest}
+    image: autopilotpattern/redis:3.2.8-r1.0.0
     mem_limit: 4g
     restart: always
     # expose for linking, but each container gets a private IP for
@@ -13,10 +13,9 @@ services:
     labels:
       - triton.cns.services=redis
     environment:
-      - CONSUL=redis-consul.svc.${TRITON_ACCOUNT}.${TRITON_DC}.cns.joyent.com
       - CONTAINERPILOT=file:///etc/containerpilot.json
       - affinity:com.docker.compose.service!=~redis
-    # env_file: _env
+    env_file: _env
     network_mode: bridge
 
   consul:

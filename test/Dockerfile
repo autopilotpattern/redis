@@ -11,8 +11,8 @@ RUN pip3 install \
     IPy==0.83
 
 # install test targets
-COPY examples/compose/docker-compose.yml /src/compose/docker-compose.yml
-COPY examples/triton/docker-compose.yml /src/triton/docker-compose.yml
+COPY test/conf/compose/docker-compose.yml /src/compose/docker-compose.yml
+COPY test/conf/triton/docker-compose.yml /src/triton/docker-compose.yml
 
 # install tests
 COPY test/testing/testcases.py /src/testcases.py
