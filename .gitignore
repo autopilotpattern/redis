@@ -5,3 +5,5 @@ manta.pub
 
 # macos frustration
 .DS_Store
+
+node_modules
