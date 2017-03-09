@@ -132,7 +132,7 @@ envcheck() {
         echo CONSUL=redis-consul.svc.${TRITON_ACCOUNT}.${TRITON_DC}.cns.joyent.com >> _env
         echo >> _env
 
-        echo 'Edit the _env file with your desired MYSQL_* and MANTA_* config'
+        echo 'Edit the _env file with your desired MANTA_* config'
     else
         echo 'Existing _env file found, exiting'
         exit
