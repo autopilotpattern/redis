@@ -5,11 +5,6 @@ services:
     image: autopilotpattern/redis:3.2.8-r1.0.0
     mem_limit: 4g
     restart: always
-    # expose for linking, but each container gets a private IP for
-    # internal use as well
-    expose:
-      - 6379
-      - 26379
     labels:
       - triton.cns.services=redis
     environment:
@@ -28,15 +23,6 @@ services:
         -ui-dir /ui
     restart: always
     mem_limit: 128m
-    ports:
-      - 8500
-    expose:
-      - 53
-      - 8300
-      - 8301
-      - 8302
-      - 8400
-      - 8500
     labels:
       - triton.cns.services=redis-consul
     network_mode: bridge
