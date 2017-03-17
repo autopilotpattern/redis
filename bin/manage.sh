@@ -293,7 +293,10 @@ getRedisInfo() {
 
 manta() {
     local alg=rsa-sha256
-    local keyId=/$MANTA_USER/$MANTA_SUBUSER/keys/$MANTA_KEY_ID
+    local keyId=/$MANTA_USER/keys/$MANTA_KEY_ID
+    if [[ "${MANTA_SUBUSER}" != "" ]]; then
+        keyId=/$MANTA_USER/$MANTA_SUBUSER/keys/$MANTA_KEY_ID
+    fi
     local now=$(date -u "+%a, %d %h %Y %H:%M:%S GMT")
     local sig=$(echo "date:" $now | \
                 tr -d '\n' | \
