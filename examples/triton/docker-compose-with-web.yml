@@ -20,6 +20,13 @@ services:
       # Learn more at https://www.joyent.com/blog/optimizing-docker-on-triton#controlling-container-placement
     env_file: _env
     network_mode: bridge
+    ports:
+      - 6379
+      - 26379
+      # These port delcarations should not be made for production. Without these declarations, Redis 
+      # will be available to other containers via private interfaces. With these declarations, Redis is 
+      # also accessible publicly. This will also result in a public redis CNS record being created, 
+      # in the triton.zone domain.
 
   # Consul acts as our service catalog and is used to coordinate global state among 
   # our Redis containers
