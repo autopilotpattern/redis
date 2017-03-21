@@ -9,9 +9,6 @@ services:
       - CONSUL=consul
     links:
       - consul:consul
-    ports:
-      - 6379
-      - 26379
     expose:
       - 6379
       - 26379
@@ -27,8 +24,6 @@ services:
         -ui-dir /ui
     restart: always
     mem_limit: 128m
-    ports:
-      - 8500
     expose:
       - 53
       - 8300
@@ -48,7 +43,5 @@ services:
       - redis:redis
       - consul:consul
     ports:
-      - 8000
-    expose:
       - 8000
     network_mode: bridge

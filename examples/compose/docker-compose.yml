@@ -5,16 +5,10 @@ services:
     image: autopilotpattern/redis:3.2.8-r1.0.0
     mem_limit: 512m
     restart: always
-    expose:
-      - 6379
-      - 26379
     environment:
       - CONSUL=consul
     links:
       - consul:consul
-    ports:
-      - 6379
-      - 26379
     expose:
       - 6379
       - 26379
@@ -30,8 +24,6 @@ services:
         -ui-dir /ui
     restart: always
     mem_limit: 128m
-    ports:
-      - 8500
     expose:
       - 53
       - 8300
