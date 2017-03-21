@@ -2,7 +2,7 @@ version: '2.1'
 
 services:
   redis:
-    image: autopilotpattern/redis:3.2.8-r1.0.0
+    image: autopilotpattern/redis:branch-backup-fix
     mem_limit: 4g
     restart: always
     labels:
@@ -28,7 +28,7 @@ services:
     network_mode: bridge
 
   webserver:
-    image: jasonpincin/ap-redis-example-webserver:1.0.0
+    image: autopilotpattern/redis-example-webserver:1.0.0
     restart: always
     mem_limit: 128m
     ports:
