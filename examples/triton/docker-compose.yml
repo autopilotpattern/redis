@@ -2,7 +2,7 @@ version: '2.1'
 
 services:
   redis:
-    image: autopilotpattern/redis:3.2.8-r1.0.0
+    image: autopilotpattern/redis:${TAG:-latest}
     mem_limit: 4g
     # Joyent recommends setting instances to always restart on Triton
     restart: always
@@ -14,11 +14,15 @@ services:
       # This label selects the proper Joyent resource package 
       # https://www.joyent.com/blog/optimizing-docker-on-triton#ram-cpu-and-disk-resources-for-your-containers
     environment:
+      - CONSUL=redis-consul.svc.${TRITON_ACCOUNT}.${TRITON_DC}.cns.joyent.com
+      # The CONSUL variable can safely be removed after setup.sh is run and the env_file line below is enabled
       - CONTAINERPILOT=file:///etc/containerpilot.json
       - affinity:com.docker.compose.service!=~redis
       # This helps distribute Redis instances throughout the data center
       # Learn more at https://www.joyent.com/blog/optimizing-docker-on-triton#controlling-container-placement
-    env_file: _env
+    # env_file: _env
+    # Uncomment the above line and run setup.sh, then edit the generated _env to properly configure 
+    # your Triton settings including Consul host and backup location
     network_mode: bridge
     ports:
       - 6379
@@ -42,6 +46,9 @@ services:
     # turn this into an HA Consul raft.
     restart: always
     mem_limit: 128m
+    ports:
+      - 8500
+      # As above, this port delcarations should not be made for production.
     labels:
       - triton.cns.services=redis-consul
     network_mode: bridge
