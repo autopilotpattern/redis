@@ -14,15 +14,11 @@ services:
       # This label selects the proper Joyent resource package 
       # https://www.joyent.com/blog/optimizing-docker-on-triton#ram-cpu-and-disk-resources-for-your-containers
     environment:
-      - CONSUL=redis-consul.svc.${TRITON_ACCOUNT}.${TRITON_DC}.cns.joyent.com
-      # The CONSUL variable can safely be removed after setup.sh is run and the env_file line below is enabled
       - CONTAINERPILOT=file:///etc/containerpilot.json
       - affinity:com.docker.compose.service!=~redis
       # This helps distribute Redis instances throughout the data center
       # Learn more at https://www.joyent.com/blog/optimizing-docker-on-triton#controlling-container-placement
-    # env_file: _env
-    # Uncomment the above line and run setup.sh, then edit the generated _env to properly configure 
-    # your Triton settings including Consul host and backup location
+    env_file: _env
     network_mode: bridge
     ports:
       - 6379
