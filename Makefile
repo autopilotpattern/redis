@@ -135,7 +135,7 @@ test:
 		-e TRITON_ACCOUNT=$(TRITON_ACCOUNT) \
 		-e TRITON_DC=$(TRITON_DC) \
 		$(SDC_KEYS_VOL) -w /src \
-		$(testImage):$(tag) python3 tests.py
+		$(testImage):$(tag) sh tests.sh
 
 ## Print environment for build debugging
 debug:

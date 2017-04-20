@@ -1,0 +1,15 @@
+{
+    "consul": "{{ .CONSUL }}:8500",
+    "services": [
+        {
+            "name": "webserver",
+            "port": 8000,
+            "health": "/usr/bin/curl -o /dev/null --fail -s http://localhost:8000/",
+            "poll": 3,
+            "ttl": 10
+        }
+    ],
+    "backends": [
+        { "name": "redis-sentinel", "poll": 7, "onChange": "pkill -SIGHUP node" }
+    ]
+}

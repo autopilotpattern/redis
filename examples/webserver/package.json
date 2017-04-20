@@ -1,0 +1,14 @@
+{
+  "name": "redis-node-example",
+  "version": "1.0.0",
+  "description": "An example of accessing Redis on Autopilot from Node.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Jason Pincin <jason@pincin.com>",
+  "license": "MIT",
+  "dependencies": {
+    "ioredis": "~2.5.0",
+    "piloted": "~2.1.0"
+  }
+}

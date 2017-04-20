@@ -48,3 +48,12 @@ services:
     labels:
       - triton.cns.services=redis-consul
     network_mode: bridge
+
+  webserver:
+    image: autopilotpattern/redis-example-webserver:1.0.0
+    restart: always
+    mem_limit: 128m
+    ports:
+      - 8000
+    env_file: _env
+    network_mode: bridge

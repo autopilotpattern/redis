@@ -17,3 +17,4 @@ COPY examples/triton/docker-compose.yml /src/triton/docker-compose.yml
 # install tests
 COPY test/testing/testcases.py /src/testcases.py
 COPY test/tests.py /src/tests.py
+COPY test/tests.sh /src/tests.sh

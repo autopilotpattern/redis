@@ -32,3 +32,16 @@ services:
       - 8400
       - 8500
     network_mode: bridge
+
+  webserver:
+    image: autopilotpattern/redis-example-webserver:1.0.0
+    restart: always
+    mem_limit: 128m
+    environment:
+      - CONSUL=consul
+    links:
+      - redis:redis
+      - consul:consul
+    ports:
+      - 8000
+    network_mode: bridge
